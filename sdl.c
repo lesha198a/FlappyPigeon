@@ -225,7 +225,7 @@ SDL_AppResult SDL_AppIterate(void *appstate)
                 game_over = 1;
             }
         }
-    }
+    } 
 
     SDL_RenderTexture(renderer, bird_texture, NULL, &rect3);
 
