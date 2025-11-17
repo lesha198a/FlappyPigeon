@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.12)
 
-set(CMAKE_PREFIX_PATH "C:\\Users\\Alexey\\Desktop\\SDL3-3.2.20\\cmake")
+# set(CMAKE_PREFIX_PATH "C:\\Users\\Alexey\\Desktop\\SDL3-3.2.20\\cmake")
+set(CMAKE_PREFIX_PATH "U:\\SDL3-3.2.20\\cmake")
 
 project(MyProject VERSION 1.0 LANGUAGES C)
 
