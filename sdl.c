@@ -29,7 +29,6 @@ static SDL_Texture *column_texture = NULL;
 #define MENURECT_WIDTH 320
 #define MENURECT_HEIGHT 60
 
-
 static Uint64 last_time = 0;
 static float rect_speed = 120;
 
@@ -151,11 +150,61 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event)
     return SDL_APP_CONTINUE;
 }
 
-SDL_AppResult SDL_AppIterate(void *appstate)
+void drawBackground()
 {
     SDL_FRect background;
+    background.x = 0;
+    background.y = 0;
+    background.w = WINDOW_WIDTH;
+    background.h = WINDOW_HEIGHT;
+    SDL_RenderTexture(renderer, background_texture, NULL, &background);
+}
+
+float getColumnX() {
+    return column * WINDOW_WIDTH;
+}
+
+
+float getHoleTopY() {
+    return rect_hole * WINDOW_HEIGHT;
+}
+
+float getHoleBottomY() {
+    return getHoleTopY() + HOLE_HEIGHT * 2;
+}
+
+void updateColumn(const float elapsed) {
+    if (!pause)
+    {
+        column -= 0.18 * elapsed;
+    }
+    if (getColumnX() <= -60)
+    {
+        column = 1;
+        rect_hole = SDL_randf();
+    }
+}
+
+void drawColumn() {
+
     SDL_FRect column1;
+    column1.x = getColumnX();
+    column1.y = 0;
+    column1.w = COLUMN_WIDTH;
+    column1.h = getHoleTopY();
+    SDL_RenderTexture(renderer, column_texture, NULL, &column1);
+
     SDL_FRect column2;
+    column2.x = getColumnX();
+    column2.y = getHoleBottomY();
+    column2.w = COLUMN_WIDTH;
+    column2.h = WINDOW_HEIGHT - getHoleBottomY();
+    SDL_RenderTexture(renderer, column_texture, NULL, &column2);
+}
+
+SDL_AppResult SDL_AppIterate(void *appstate)
+{
+    
     SDL_FRect birdRect;
     const Uint64 now = SDL_GetTicks();
 
@@ -164,36 +213,17 @@ SDL_AppResult SDL_AppIterate(void *appstate)
 
     const float elapsed = ((float)(now - last_time)) / 1000.0f;
 
-    background.x = 0;
-    background.y = 0;
-    background.w = WINDOW_WIDTH;
-    background.h = WINDOW_HEIGHT;
-    SDL_RenderTexture(renderer, background_texture, NULL, &background);
+    drawBackground();
 
+    updateColumn(elapsed);
+    drawColumn();
+
+    //todo extract bird draw to separate function
     if (!pause)
     {
-        column -= 0.18 * elapsed;
         bird += 0.1 * elapsed;
         birdLimit();
     }
-
-    column1.x = column * WINDOW_WIDTH;
-    column1.y = 0;
-    column1.w = COLUMN_WIDTH;
-    column1.h = rect_hole * WINDOW_HEIGHT;
-    SDL_RenderTexture(renderer, column_texture, NULL, &column1);
-
-    column2.x = column * WINDOW_WIDTH;
-    column2.y = rect_hole * WINDOW_HEIGHT + 120;
-    column2.w = COLUMN_WIDTH;
-    column2.h = WINDOW_HEIGHT - rect_hole * WINDOW_HEIGHT;
-    SDL_RenderTexture(renderer, column_texture, NULL, &column2);
-    if (column2.x <= -60)
-    {
-        column = 1;
-        rect_hole = SDL_randf();
-    }
-
     birdRect.x = BIRD_LEFT_MARGIN;
     birdRect.y = bird * WINDOW_HEIGHT;
     birdRect.w = BIRD_WIDTH;
@@ -203,15 +233,17 @@ SDL_AppResult SDL_AppIterate(void *appstate)
     {
         birdRect.y = 0;
     }
-    if (birdRect.x + BIRD_WIDTH <= column2.x + COLUMN_WIDTH && birdRect.x + BIRD_WIDTH >= column2.x || birdRect.x <= column2.x + COLUMN_WIDTH && birdRect.x >= column2.x)
+    float columnX = getColumnX();
+    float holeBottomY = getHoleBottomY();
+    if (birdRect.x + BIRD_WIDTH <= columnX + COLUMN_WIDTH && birdRect.x + BIRD_WIDTH >= columnX || birdRect.x <= columnX + COLUMN_WIDTH && birdRect.x >= columnX)
     {
         if (birdRect.y + BIRD_HEIGHT < rect_hole * WINDOW_HEIGHT + 120 && birdRect.y > rect_hole * WINDOW_HEIGHT)
         {
             game_over = 0;
         }
-        else if (birdRect.x + BIRD_WIDTH <= column2.x + COLUMN_WIDTH && birdRect.x + BIRD_WIDTH >= column2.x || birdRect.x <= column2.x + COLUMN_WIDTH && birdRect.x >= column2.x)
+        else if (birdRect.x + BIRD_WIDTH <= columnX + COLUMN_WIDTH && birdRect.x + BIRD_WIDTH >= columnX || birdRect.x <= columnX + COLUMN_WIDTH && birdRect.x >= columnX)
         {
-            if (birdRect.y + BIRD_HEIGHT >= column2.y + HOLE_HEIGHT || birdRect.y <= column2.y)
+            if (birdRect.y + BIRD_HEIGHT >= holeBottomY + HOLE_HEIGHT || birdRect.y <= holeBottomY)
             {
                 game_over = 1;
             }
@@ -220,6 +252,7 @@ SDL_AppResult SDL_AppIterate(void *appstate)
 
     SDL_RenderTexture(renderer, bird_texture, NULL, &birdRect);
 
+    //todo extract menu draw to separate function
     if (pause)
     {
         SDL_SetRenderDrawColor(renderer, 255, 130, 0, SDL_ALPHA_OPAQUE);
