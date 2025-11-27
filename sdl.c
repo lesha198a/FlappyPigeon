@@ -2,6 +2,7 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include <SDL3/SDL_surface.h>
+#include <stdio.h>
 
 static SDL_Window *window = NULL;
 static SDL_Renderer *renderer = NULL;
@@ -28,9 +29,11 @@ static SDL_Texture *column_texture = NULL;
 #define MENURECT_LEFT_MARGIN 160
 #define MENURECT_WIDTH 320
 #define MENURECT_HEIGHT 60
+#define TEXT_SIZE 20
+
+int addscore = 0;
 
 static Uint64 last_time = 0;
-static float rect_speed = 120;
 
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 {
@@ -173,15 +176,19 @@ float getHoleBottomY() {
     return getHoleTopY() + HOLE_HEIGHT * 2;
 }
 
+
 void updateColumn(const float elapsed) {
     if (!pause)
     {
         column -= 0.18 * elapsed;
     }
-    if (getColumnX() <= -60)
+    if (column <= -60.0 / WINDOW_WIDTH)
     {
         column = 1;
         rect_hole = SDL_randf();
+        if (rect_hole >= 0.92) {
+            rect_hole = SDL_randf();
+        }
     }
 }
 
@@ -202,10 +209,56 @@ void drawColumn() {
     SDL_RenderTexture(renderer, column_texture, NULL, &column2);
 }
 
+void drawBird() {
+    SDL_FRect birdRect;
+    birdRect.x = BIRD_LEFT_MARGIN;
+    birdRect.y = bird * WINDOW_HEIGHT;
+    birdRect.w = BIRD_WIDTH;
+    birdRect.h = BIRD_HEIGHT;
+    SDL_RenderTexture(renderer, bird_texture, NULL, &birdRect);
+}
+
+void Score() {
+    if (BIRD_LEFT_MARGIN >= getColumnX() + COLUMN_WIDTH) {
+        addscore++;
+    }
+}
+
+void drawMenuRects() {
+    SDL_SetRenderDrawColor(renderer, 255, 130, 0, SDL_ALPHA_OPAQUE);
+        SDL_FRect menuRect;
+        for (int i = 0; i < 3; i++)
+        {
+            menuRect.x = MENURECT_LEFT_MARGIN;
+            menuRect.y = 90 + 90 * i;
+            menuRect.w = MENURECT_WIDTH;
+            menuRect.h = MENURECT_HEIGHT;
+            SDL_RenderFillRect(renderer, &menuRect);
+            
+        }
+}
+
+void drawScore() {
+    char drawscore[100];
+    SDL_SetRenderDrawColor(renderer, 180, 0, 255, SDL_ALPHA_OPAQUE);
+    SDL_SetRenderScale(renderer, 4.0f, 4.0f);
+    snprintf(drawscore, 100, "%d", addscore);
+    SDL_RenderDebugText(renderer, 80, 2, drawscore);
+    SDL_SetRenderScale(renderer, 1.0f, 1.0f);
+}
+
+void writeMenuText(const Uint64 now) {
+    char score[100]; 
+    SDL_SetRenderScale(renderer, 3.5f, 3.5f);
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, SDL_ALPHA_OPAQUE);
+    SDL_RenderDebugText(renderer, 59, 32, "Continue");
+    snprintf(score, 100, "%d", addscore);
+    SDL_RenderDebugText(renderer, 59, 32, score);
+    SDL_SetRenderScale(renderer, 1.0f, 1.0f);
+}
+
 SDL_AppResult SDL_AppIterate(void *appstate)
 {
-    
-    SDL_FRect birdRect;
     const Uint64 now = SDL_GetTicks();
 
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
@@ -218,55 +271,39 @@ SDL_AppResult SDL_AppIterate(void *appstate)
     updateColumn(elapsed);
     drawColumn();
 
-    //todo extract bird draw to separate function
     if (!pause)
     {
         bird += 0.1 * elapsed;
         birdLimit();
     }
-    birdRect.x = BIRD_LEFT_MARGIN;
-    birdRect.y = bird * WINDOW_HEIGHT;
-    birdRect.w = BIRD_WIDTH;
-    birdRect.h = BIRD_HEIGHT;
 
-    if (birdRect.y < 0)
-    {
-        birdRect.y = 0;
-    }
+    drawBird();
+
     float columnX = getColumnX();
     float holeBottomY = getHoleBottomY();
-    if (birdRect.x + BIRD_WIDTH <= columnX + COLUMN_WIDTH && birdRect.x + BIRD_WIDTH >= columnX || birdRect.x <= columnX + COLUMN_WIDTH && birdRect.x >= columnX)
+    if (BIRD_LEFT_MARGIN + BIRD_WIDTH <= columnX + COLUMN_WIDTH && BIRD_LEFT_MARGIN + BIRD_WIDTH >= columnX || BIRD_LEFT_MARGIN <= columnX + COLUMN_WIDTH && BIRD_LEFT_MARGIN >= columnX)
     {
-        if (birdRect.y + BIRD_HEIGHT < rect_hole * WINDOW_HEIGHT + 120 && birdRect.y > rect_hole * WINDOW_HEIGHT)
+        if (bird * WINDOW_HEIGHT + BIRD_HEIGHT < rect_hole * WINDOW_HEIGHT + 120 && bird * WINDOW_HEIGHT > rect_hole * WINDOW_HEIGHT)
         {
             game_over = 0;
         }
-        else if (birdRect.x + BIRD_WIDTH <= columnX + COLUMN_WIDTH && birdRect.x + BIRD_WIDTH >= columnX || birdRect.x <= columnX + COLUMN_WIDTH && birdRect.x >= columnX)
+        else if (BIRD_LEFT_MARGIN + BIRD_WIDTH <= columnX + COLUMN_WIDTH && BIRD_LEFT_MARGIN + BIRD_WIDTH >= columnX || BIRD_LEFT_MARGIN <= columnX + COLUMN_WIDTH && BIRD_LEFT_MARGIN >= columnX)
         {
-            if (birdRect.y + BIRD_HEIGHT >= holeBottomY + HOLE_HEIGHT || birdRect.y <= holeBottomY)
+            if (bird * WINDOW_HEIGHT + BIRD_HEIGHT >= holeBottomY + HOLE_HEIGHT || bird * WINDOW_HEIGHT <= holeBottomY)
             {
                 game_over = 1;
             }
         }
     }
 
-    SDL_RenderTexture(renderer, bird_texture, NULL, &birdRect);
-
-    //todo extract menu draw to separate function
     if (pause)
     {
-        SDL_SetRenderDrawColor(renderer, 255, 130, 0, SDL_ALPHA_OPAQUE);
-        SDL_FRect menuRect;
-        for (int i = 0; i < 3; i++)
-        {
-            menuRect.x = MENURECT_LEFT_MARGIN;
-            menuRect.y = 90 + 90 * i;
-            menuRect.w = MENURECT_WIDTH;
-            menuRect.h = MENURECT_HEIGHT;
-            SDL_RenderFillRect(renderer, &menuRect);
-        }
+        drawMenuRects();
+        writeMenuText(now);
     }
 
+    drawScore();
+    
     last_time = now;
 
     SDL_RenderPresent(renderer);
