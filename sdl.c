@@ -3,6 +3,7 @@
 #include <SDL3/SDL_main.h>
 #include <SDL3/SDL_surface.h>
 #include <stdio.h>
+#include <stdbool.h>
 
 static SDL_Window *window = NULL;
 static SDL_Renderer *renderer = NULL;
@@ -22,6 +23,7 @@ static SDL_Texture *column_texture = NULL;
 #define WINDOW_HEIGHT 480
 #define PIXELS_PER_SECOND 60
 #define BIRD_LEFT_MARGIN 120
+#define BIRD_RIGHT_X (BIRD_LEFT_MARGIN + BIRD_WIDTH)
 #define BIRD_WIDTH 80
 #define BIRD_HEIGHT 30
 #define COLUMN_WIDTH 60
@@ -167,6 +169,10 @@ float getColumnX() {
     return column * WINDOW_WIDTH;
 }
 
+float getColumnRightX() {
+    return getColumnX() + COLUMN_WIDTH;
+}
+
 
 float getHoleTopY() {
     return rect_hole * WINDOW_HEIGHT;
@@ -185,10 +191,7 @@ void updateColumn(const float elapsed) {
     if (column <= -60.0 / WINDOW_WIDTH)
     {
         column = 1;
-        rect_hole = SDL_randf();
-        if (rect_hole >= 0.92) {
-            rect_hole = SDL_randf();
-        }
+        rect_hole = SDL_randf() * 0.92;
     }
 }
 
@@ -209,10 +212,18 @@ void drawColumn() {
     SDL_RenderTexture(renderer, column_texture, NULL, &column2);
 }
 
+float getBirdY() {
+    return bird * WINDOW_HEIGHT;
+}
+
+float getBirdBottomY() {
+    return getBirdY() + BIRD_HEIGHT;
+}
+
 void drawBird() {
     SDL_FRect birdRect;
     birdRect.x = BIRD_LEFT_MARGIN;
-    birdRect.y = bird * WINDOW_HEIGHT;
+    birdRect.y = getBirdY();
     birdRect.w = BIRD_WIDTH;
     birdRect.h = BIRD_HEIGHT;
     SDL_RenderTexture(renderer, bird_texture, NULL, &birdRect);
@@ -257,6 +268,16 @@ void writeMenuText(const Uint64 now) {
     SDL_SetRenderScale(renderer, 1.0f, 1.0f);
 }
 
+bool isBirdOvercomeColumn() {
+    return BIRD_RIGHT_X <= getColumnRightX() && BIRD_RIGHT_X >= getColumnX() ||
+        BIRD_LEFT_MARGIN <= getColumnRightX() && BIRD_LEFT_MARGIN >= getColumnX();
+}
+
+bool isBirdInsideHole() {
+    return getBirdBottomY() < getHoleBottomY() &&
+            getBirdY() > getHoleTopY();
+}
+
 SDL_AppResult SDL_AppIterate(void *appstate)
 {
     const Uint64 now = SDL_GetTicks();
@@ -279,20 +300,15 @@ SDL_AppResult SDL_AppIterate(void *appstate)
 
     drawBird();
 
-    float columnX = getColumnX();
-    float holeBottomY = getHoleBottomY();
-    if (BIRD_LEFT_MARGIN + BIRD_WIDTH <= columnX + COLUMN_WIDTH && BIRD_LEFT_MARGIN + BIRD_WIDTH >= columnX || BIRD_LEFT_MARGIN <= columnX + COLUMN_WIDTH && BIRD_LEFT_MARGIN >= columnX)
+    if (isBirdOvercomeColumn())
     {
-        if (bird * WINDOW_HEIGHT + BIRD_HEIGHT < rect_hole * WINDOW_HEIGHT + 120 && bird * WINDOW_HEIGHT > rect_hole * WINDOW_HEIGHT)
+        if (isBirdInsideHole())
         {
             game_over = 0;
         }
-        else if (BIRD_LEFT_MARGIN + BIRD_WIDTH <= columnX + COLUMN_WIDTH && BIRD_LEFT_MARGIN + BIRD_WIDTH >= columnX || BIRD_LEFT_MARGIN <= columnX + COLUMN_WIDTH && BIRD_LEFT_MARGIN >= columnX)
+        else
         {
-            if (bird * WINDOW_HEIGHT + BIRD_HEIGHT >= holeBottomY + HOLE_HEIGHT || bird * WINDOW_HEIGHT <= holeBottomY)
-            {
-                game_over = 1;
-            }
+            game_over = 1;
         }
     }
 
